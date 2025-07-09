@@ -1,15 +1,15 @@
-import React, { useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { Header } from './components/Header';
 import { StoreCard } from './components/StoreCard';
 import { MapView } from './components/MapView';
 import { HashTagSearch } from './components/HashTagSearch';
 import { RankingSection } from './components/RankingSection';
 import { StoreModal } from './components/StoreModal';
-import { 
-  mockStores, 
-  mockCongestionStatuses, 
-  mockHashTags, 
-  mockRankings 
+import {
+  mockStores,
+  mockCongestionStatuses,
+  mockHashTags,
+  mockRankings
 } from './data/mockData';
 import { Store, CongestionStatus } from './types';
 import { useLocalStorage } from './hooks/useLocalStorage';
@@ -17,7 +17,7 @@ import { MapIcon, List, Hash } from 'lucide-react';
 
 function App() {
   const [congestionStatuses, setCongestionStatuses] = useLocalStorage<CongestionStatus[]>(
-    'congestionStatuses', 
+    'congestionStatuses',
     mockCongestionStatuses
   );
   const [selectedTags, setSelectedTags] = useLocalStorage<string[]>('selectedTags', []);
@@ -27,7 +27,7 @@ function App() {
 
   const filteredStores = useMemo(() => {
     if (selectedTags.length === 0) return mockStores;
-    
+
     // Mock filtering logic - in real app, this would query the database
     return mockStores.filter(store => {
       const storeTagNames = getStoreTagNames(store.id);
@@ -46,7 +46,7 @@ function App() {
       timestamp: new Date().toISOString(),
       userId: 'current-user'
     };
-    
+
     setCongestionStatuses(prev => {
       const filtered = prev.filter(s => s.storeId !== storeId);
       return [...filtered, newStatus];
@@ -54,8 +54,8 @@ function App() {
   };
 
   const handleTagToggle = (tagId: string) => {
-    setSelectedTags(prev => 
-      prev.includes(tagId) 
+    setSelectedTags(prev =>
+      prev.includes(tagId)
         ? prev.filter(id => id !== tagId)
         : [...prev, tagId]
     );
@@ -91,11 +91,11 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header 
+      <Header
         onMenuToggle={() => setViewMode(prev => prev === 'list' ? 'map' : 'list')}
         onSearchToggle={() => setShowSearch(true)}
       />
-      
+
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {/* View Mode Toggle */}
         <div className="flex items-center justify-between mb-6">
@@ -103,29 +103,27 @@ function App() {
             <div className="bg-white rounded-lg p-1 shadow-sm border border-gray-200">
               <button
                 onClick={() => setViewMode('list')}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                  viewMode === 'list' 
-                    ? 'bg-orange-500 text-white' 
-                    : 'text-gray-600 hover:bg-gray-100'
-                }`}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${viewMode === 'list'
+                  ? 'bg-orange-500 text-white'
+                  : 'text-gray-600 hover:bg-gray-100'
+                  }`}
               >
                 <List className="h-4 w-4 inline mr-2" />
                 リスト
               </button>
               <button
                 onClick={() => setViewMode('map')}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                  viewMode === 'map' 
-                    ? 'bg-orange-500 text-white' 
-                    : 'text-gray-600 hover:bg-gray-100'
-                }`}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${viewMode === 'map'
+                  ? 'bg-orange-500 text-white'
+                  : 'text-gray-600 hover:bg-gray-100'
+                  }`}
               >
                 <MapIcon className="h-4 w-4 inline mr-2" />
                 マップ
               </button>
             </div>
           </div>
-          
+
           {selectedTags.length > 0 && (
             <div className="flex items-center gap-2">
               <Hash className="h-4 w-4 text-orange-500" />
@@ -146,7 +144,7 @@ function App() {
           {/* Main Content */}
           <div className="lg:col-span-2">
             {viewMode === 'map' ? (
-              <MapView 
+              <MapView
                 stores={filteredStores}
                 congestionStatuses={congestionStatuses}
                 onStoreClick={handleStoreClick}
@@ -162,7 +160,7 @@ function App() {
                     onStoreClick={handleStoreClick}
                   />
                 ))}
-                
+
                 {filteredStores.length === 0 && (
                   <div className="text-center py-12">
                     <div className="text-gray-400 mb-4">
@@ -179,17 +177,17 @@ function App() {
               </div>
             )}
           </div>
-          
+
           {/* Sidebar */}
           <div className="space-y-6">
-            <RankingSection 
+            <RankingSection
               rankings={mockRankings}
               onStoreClick={handleRankingStoreClick}
             />
           </div>
         </div>
       </main>
-      
+
       {/* Modals */}
       {showSearch && (
         <HashTagSearch
@@ -199,7 +197,7 @@ function App() {
           onClose={() => setShowSearch(false)}
         />
       )}
-      
+
       {selectedStore && (
         <StoreModal
           store={selectedStore}
