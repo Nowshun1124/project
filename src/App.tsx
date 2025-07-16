@@ -1,56 +1,69 @@
 import { useState, useMemo } from 'react';
+import { useEffect } from 'react';
 import { Header } from './components/Header';
 import { StoreCard } from './components/StoreCard';
 import { MapView } from './components/MapView';
 import { HashTagSearch } from './components/HashTagSearch';
 import { RankingSection } from './components/RankingSection';
 import { StoreModal } from './components/StoreModal';
-import {
-  mockStores,
-  mockCongestionStatuses,
-  mockHashTags,
-  mockRankings
-} from './data/mockData';
-import { Store, CongestionStatus } from './types';
-import { useLocalStorage } from './hooks/useLocalStorage';
+import { AuthModal } from './components/AuthModal';
+import { mockRankings } from './data/mockData';
+import { Store } from './types';
+import { useSupabaseData } from './hooks/useSupabaseData';
+import { getCurrentUser } from './lib/supabase';
 import { MapIcon, List, Hash } from 'lucide-react';
 
 function App() {
-  const [congestionStatuses, setCongestionStatuses] = useLocalStorage<CongestionStatus[]>(
-    'congestionStatuses',
-    mockCongestionStatuses
-  );
-  const [selectedTags, setSelectedTags] = useLocalStorage<string[]>('selectedTags', []);
+  const {
+    stores,
+    congestionStatuses,
+    hashTags,
+    loading,
+    error,
+    updateCongestionStatus,
+    getStoresByTags
+  } = useSupabaseData();
+  
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
   const [showSearch, setShowSearch] = useState(false);
   const [selectedStore, setSelectedStore] = useState<Store | null>(null);
+  const [showAuth, setShowAuth] = useState(false);
+  const [user, setUser] = useState<any>(null);
+  const [filteredStores, setFilteredStores] = useState<Store[]>([]);
 
-  const filteredStores = useMemo(() => {
-    if (selectedTags.length === 0) return mockStores;
-
-    // Mock filtering logic - in real app, this would query the database
-    return mockStores.filter(store => {
-      const storeTagNames = getStoreTagNames(store.id);
-      return selectedTags.some(tagId => {
-        const tag = mockHashTags.find(t => t.id === tagId);
-        return tag && storeTagNames.includes(tag.name);
-      });
-    });
-  }, [selectedTags]);
-
-  const handleStatusUpdate = (storeId: string, status: 'empty' | 'somewhat-crowded' | 'full') => {
-    const newStatus: CongestionStatus = {
-      id: Date.now().toString(),
-      storeId,
-      status,
-      timestamp: new Date().toISOString(),
-      userId: 'current-user'
+  useEffect(() => {
+    const checkUser = async () => {
+      const { user } = await getCurrentUser();
+      setUser(user);
     };
+    checkUser();
+  }, []);
 
-    setCongestionStatuses(prev => {
-      const filtered = prev.filter(s => s.storeId !== storeId);
-      return [...filtered, newStatus];
-    });
+  useEffect(() => {
+    const filterStores = async () => {
+      if (selectedTags.length === 0) {
+        setFilteredStores(stores);
+      } else {
+        const filtered = await getStoresByTags(selectedTags);
+        setFilteredStores(filtered);
+      }
+    };
+    filterStores();
+  }, [selectedTags, stores, getStoresByTags]);
+
+  const handleStatusUpdate = async (storeId: string, status: 'empty' | 'somewhat-crowded' | 'full') => {
+    if (!user) {
+      setShowAuth(true);
+      return;
+    }
+
+    try {
+      await updateCongestionStatus(storeId, status);
+    } catch (error) {
+      console.error('Failed to update congestion status:', error);
+      alert('混雑状況の更新に失敗しました。もう一度お試しください。');
+    }
   };
 
   const handleTagToggle = (tagId: string) => {
@@ -61,25 +74,12 @@ function App() {
     );
   };
 
-  const getStoreTagNames = (storeId: string): string[] => {
-    // Mock tag assignment logic
-    const tagAssignments: Record<string, string[]> = {
-      '1': ['#今日の麺', '#ぼっち飯歓迎', '#コスパ最高'],
-      '2': ['#勉強できる', '#サクッとランチ', '#ぼっち飯歓迎'],
-      '3': ['#ガッツリ飯', '#深夜まで営業'],
-      '4': ['#サクッとランチ', '#テイクアウト可', '#コスパ最高'],
-      '5': ['#ぼっち飯歓迎', '#ガッツリ飯', '#コスパ最高'],
-      '6': ['#深夜まで営業', '#ガッツリ飯', '#ぼっち飯歓迎']
-    };
-    return tagAssignments[storeId] || [];
-  };
-
   const handleStoreClick = (store: Store) => {
     setSelectedStore(store);
   };
 
   const handleRankingStoreClick = (storeId: string) => {
-    const store = mockStores.find(s => s.id === storeId);
+    const store = stores.find(s => s.id === storeId);
     if (store) {
       setSelectedStore(store);
     }
@@ -88,6 +88,33 @@ function App() {
   const getStoreCongestionStatus = (storeId: string) => {
     return congestionStatuses.find(status => status.storeId === storeId);
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto mb-4"></div>
+          <p className="text-gray-600">データを読み込み中...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-red-600 mb-4">エラーが発生しました: {error}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg"
+          >
+            再読み込み
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -191,7 +218,7 @@ function App() {
       {/* Modals */}
       {showSearch && (
         <HashTagSearch
-          tags={mockHashTags}
+          tags={hashTags}
           selectedTags={selectedTags}
           onTagToggle={handleTagToggle}
           onClose={() => setShowSearch(false)}
@@ -206,6 +233,15 @@ function App() {
           onStatusUpdate={handleStatusUpdate}
         />
       )}
+
+      <AuthModal
+        isOpen={showAuth}
+        onClose={() => setShowAuth(false)}
+        onSuccess={() => {
+          setShowAuth(false);
+          window.location.reload();
+        }}
+      />
     </div>
   );
 }
